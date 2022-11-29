@@ -62,18 +62,20 @@ def get_spark_applications(synapse_host, synapse_api_version, bearer_token):
     headers = {
         'Authorization': f'Bearer {bearer_token}'
     }
-    response = requests.get(url, params=params, headers=headers, timeout=15)
-    if response.status_code == 200:
-        apps_info = response.json()
-        applications = apps_info.get('sparkJobs')
-        application_list = []
-        if applications:
+    #response = requests.get(url, params=params, headers=headers, timeout=15)
+    #if response.status_code == 200:
+    #    apps_info = response.json()
+    
+    apps_info = eval("{'sparkJobs':[{'sparkPoolName':'spark_pool_name','livyId':'livy_id','sparkApplicationId':'app1','state':'state', 'name':'name', 'submitter':'submitter', 'compute':'compute', 'timing':'timing', 'jobType':'jobType', 'submitTime':'submitTime', 'endTime':'ed', 'queuedDuration':'a', 'runningDuration':1, 'totalDuration':2}]}")
+    applications = apps_info.get('sparkJobs')
+    application_list = []
+    if applications:
             for _app in applications:
                 app = model.spark_application_from_dict(_app)
                 if not app.spark_application_id:
                     continue
                 application_list.append(app)
-        return application_list
+    return application_list
     print(response.json())
     response.raise_for_status()
 
@@ -103,18 +105,19 @@ def spark_application_discovery_by_workspace(workspace_config, workspace_context
         try:
             print('spark application discovery...')
             bearer_token = workspace_context.get('bearer_token')
-            if not bearer_token:
-                return
+            # if not bearer_token:
+            #     return
             synapse_host = workspace_config.synapse_host()
             synapse_api_version = workspace_config.synapse_api_version
             workspace_name = workspace_config.workspace_name
             with metrics.application_discovery_duration_histogram.labels(workspace_name).time():
-                application_list = get_spark_applications(synapse_host, synapse_api_version, bearer_token)
+               application_list = get_spark_applications(synapse_host, synapse_api_version, bearer_token)
+              # application_list = ["spark-app1","spark-app2"]
             workspace_scrape_configs = generate_spark_application_scrape_configs(application_list, workspace_name, synapse_host, synapse_api_version)
 
             if workspace_config.service_discovery_output_folder:
                 folder = os.path.join(workspace_config.service_discovery_output_folder, f'workspace/{workspace_name}/')
-                write_string_to_path(folder, 'bearer_token', bearer_token)
+                write_string_to_path(folder, 'bearer_token', 'bearer_token')
                 write_string_to_path(folder, 'application_discovery.json', model.to_json(workspace_scrape_configs))
 
             workspace_context['workspace_scrape_configs'] = workspace_scrape_configs
@@ -144,9 +147,9 @@ def spark_application_discovery_by_workspace(workspace_config, workspace_context
                                                 resource_group=workspace_config.resource_group,
                                                 tenant_id=workspace_config.tenant_id,
                                                 **app_base_labels).set(1)
-                metrics.application_submit_time.labels(**app_base_labels).set(app.submit_time_seconds)
-                metrics.application_queue_duration.labels(**app_base_labels).set(app.queued_duration_seconds)
-                metrics.application_running_duration.labels(**app_base_labels).set(app.running_duration_seconds)
+              #  metrics.application_submit_time.labels(**app_base_labels).set(app.submit_time_seconds)
+              #  metrics.application_queue_duration.labels(**app_base_labels).set(app.queued_duration_seconds)
+              #  metrics.application_running_duration.labels(**app_base_labels).set(app.running_duration_seconds)
         except:
             metrics.application_discovery_failed_count.labels(workspace_name=workspace_config.workspace_name).inc()
             traceback.print_exc()
@@ -209,7 +212,7 @@ class GracefulShutdown:
 def main():
     graceful_shutdown = GracefulShutdown()
 
-    cfg = config.read_config(filename='config/config.yaml')
+    cfg = config.read_config(filename='/Users/kyligence/git/azure-synapse-spark-metrics/synapse-prometheus-connector/src/config/config.yaml')
     print('started, config loaded.')
 
     workspace_contexts = {}
@@ -221,7 +224,7 @@ def main():
             try:
                 token_refresh_by_workspace(workspace_config, workspace_context)
                 spark_application_discovery_by_workspace(workspace_config, workspace_context)
-                spark_pool_metrics_by_workspace(workspace_config, workspace_context)
+            #    spark_pool_metrics_by_workspace(workspace_config, workspace_context)
             except:
                 traceback.print_exc()
         time.sleep(1)
